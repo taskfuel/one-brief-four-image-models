@@ -86,7 +86,17 @@ async function generate(model, prompt) {
     try {
       started = await gateway({
         url: `https://stablestudio.dev/api/generate/${model}/generate`,
-        body: { prompt, aspectRatio: "1:1", imageSize: "1K" },
+        // Both spellings on purpose. The spec documents camelCase with a "1:1"
+        // default, but a real job came back recording aspect_ratio 16:9, so
+        // the camelCase key was ignored and the square brief was not honoured.
+        // Sending both means whichever one it reads gets the right value.
+        body: {
+          prompt,
+          aspectRatio: "1:1",
+          aspect_ratio: "1:1",
+          imageSize: "1K",
+          image_size: "1K",
+        },
         maxAmountUsd: MAX_USD_PER_IMAGE,
       });
       break;
@@ -127,12 +137,14 @@ async function generate(model, prompt) {
       throw err;
     }
 
-    if (job?.status === "completed" || job?.status === "succeeded") {
-      return { url: findImageUrl(job.result), cost: started.cost };
-    }
-    if (job?.status === "failed" || job?.error) {
+    if (job?.status === "failed" || job?.status === "error" || job?.error) {
       throw new Error(job?.error || "generation failed");
     }
+    // Don't match on the status string. The spec doesn't pin its values (the
+    // live one is "complete", not the "completed" you would guess), so treat
+    // a URL turning up in the result as the finish line instead.
+    const url = findImageUrl(job?.result);
+    if (url) return { url, cost: started.cost };
   }
   throw new Error(`timed out after 5 minutes. Paid $${started.cost.toFixed(2)}, job ${jobId}`);
 }
