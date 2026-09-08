@@ -13,8 +13,8 @@ pick the one you like.
 ## Run it
 
 1. **Fork this Repl.**
-2. **Get a key** at [app.taskfuel.ai](https://app.taskfuel.ai). The first $5 is on
-   the house, which is about 20 runs of this app.
+2. **Get a key** at [app.taskfuel.ai](https://app.taskfuel.ai/?utm_source=replit&utm_medium=referral&utm_campaign=2026-09-replit-templates&utm_content=one-brief-four-image-models).
+   The first $5 is on the house, which is about 20 runs of this app.
 3. **Open the Secrets tab** in the left sidebar. Add a secret named
    `TASKFUEL_API_KEY` and paste your key as the value.
 4. **Hit Run.**
