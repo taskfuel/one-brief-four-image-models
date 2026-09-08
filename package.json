@@ -1,0 +1,13 @@
+{
+  "name": "taskfuel-image-bench",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "One brief, four image models, four prices. Powered by TaskFuel.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,10 @@
+run = "node server.js"
+modules = ["nodejs-20"]
+entrypoint = "server.js"
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+[deployment]
+run = ["node", "server.js"]
