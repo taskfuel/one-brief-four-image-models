@@ -163,6 +163,15 @@ function findImageUrl(result) {
   return null;
 }
 
+// In-memory job state, keyed by a local id. Lost on restart, which is fine:
+// the browser just reports the job as gone and you run it again.
+const jobs = new Map();
+
+function sweepJobs() {
+  const cutoff = Date.now() - 30 * 60 * 1000;
+  for (const [id, job] of jobs) if (job.startedAt < cutoff) jobs.delete(id);
+}
+
 function json(res, status, payload) {
   res.writeHead(status, { "Content-Type": "application/json" });
   res.end(JSON.stringify(payload));
@@ -179,6 +188,10 @@ async function handle(req, res) {
     return json(res, 200, { models: MODELS, hasKey: Boolean(KEY) });
   }
 
+  // Start a generation and return immediately. Holding the request open for
+  // the whole job does not survive a hosting proxy: Replit cuts it off after
+  // its own timeout and hands the browser an HTML error page, which is what
+  // "Unexpected token '<'" in the console actually is.
   if (req.method === "POST" && req.url === "/api/generate") {
     if (!KEY) {
       return json(res, 500, {
@@ -199,12 +212,24 @@ async function handle(req, res) {
     if (!prompt?.trim()) return json(res, 400, { error: "prompt is required" });
     if (!MODELS.includes(model)) return json(res, 400, { error: `unknown model: ${model}` });
 
-    try {
-      const { url, cost } = await generate(model, prompt.trim());
-      return json(res, 200, { model, url, cost });
-    } catch (err) {
-      return json(res, 200, { model, error: String(err.message || err) });
-    }
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    jobs.set(id, { model, status: "working", startedAt: Date.now() });
+    sweepJobs();
+
+    // Deliberately not awaited. The browser polls /api/job/<id> instead.
+    generate(model, prompt.trim())
+      .then(({ url, cost }) => jobs.set(id, { model, status: "done", url, cost, startedAt: Date.now() }))
+      .catch((err) =>
+        jobs.set(id, { model, status: "error", error: String(err.message || err), startedAt: Date.now() }),
+      );
+
+    return json(res, 200, { id, model });
+  }
+
+  if (req.method === "GET" && req.url.startsWith("/api/job/")) {
+    const job = jobs.get(req.url.slice("/api/job/".length));
+    if (!job) return json(res, 404, { error: "unknown job" });
+    return json(res, 200, job);
   }
 
   res.writeHead(404);

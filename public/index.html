@@ -160,16 +160,25 @@
     for (const m of models) state[m] = { working: true };
     render(state);
 
-    // One request per model, all in flight at once, each filling in as it lands.
+    // Start all four, then poll each one. The server answers straight away
+    // with a job id, because a request held open for the whole generation gets
+    // cut off by the host's proxy.
     await Promise.all(models.map(async (model) => {
       try {
-        const res = await fetch("/api/generate", {
+        const start = await readJson(await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ prompt, model }),
-        });
-        const data = await res.json();
-        state[model] = data.error ? { error: data.error } : { url: data.url, cost: data.cost };
+        }));
+        if (start.error) throw new Error(start.error);
+
+        while (true) {
+          await new Promise(r => setTimeout(r, 2000));
+          const job = await readJson(await fetch("/api/job/" + start.id));
+          if (job.status === "done") { state[model] = { url: job.url, cost: job.cost }; break; }
+          if (job.status === "error") { state[model] = { error: job.error }; break; }
+          if (job.error) throw new Error(job.error);
+        }
       } catch (err) {
         state[model] = { error: String(err.message || err) };
       }
@@ -180,6 +189,17 @@
 
     go.disabled = false;
   });
+
+  // The host's proxy can answer with an HTML error page instead of JSON.
+  // Say so in words rather than throwing "Unexpected token '<'".
+  async function readJson(res) {
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error("server returned " + res.status + ", not JSON. Check the Console tab.");
+    }
+  }
 </script>
 </body>
 </html>
