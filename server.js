@@ -20,6 +20,10 @@ const MODELS = ["grok", "nano-banana", "gpt-image-2", "nano-banana-pro"];
 const MAX_USD_PER_IMAGE = Number(process.env.MAX_USD_PER_IMAGE || 0.25);
 const DAILY_BUDGET_USD = Number(process.env.DAILY_BUDGET_USD || 2.5);
 
+// The gateway allows 60 requests/minute per key. Four models polling at once
+// have to share that, so 8s each leaves plenty of room.
+const POLL_INTERVAL_MS = 8000;
+
 let spentToday = 0;
 let budgetDay = new Date().toISOString().slice(0, 10);
 
@@ -55,10 +59,16 @@ async function gateway({ url, method = "POST", body, maxAmountUsd }) {
 
   if (!res.ok) {
     const detail = data?.error || data?.message || text.slice(0, 200);
-    throw new Error(`gateway ${res.status}: ${detail}`);
+    const err = new Error(`gateway ${res.status}: ${detail}`);
+    err.status = res.status;
+    // The gateway tells you how long to wait. Honour it rather than guessing.
+    err.retryAfterSeconds = Number(data?.retry_after_seconds) || 10;
+    throw err;
   }
   return { data, cost };
 }
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Generate one image, then poll until the job finishes. */
 async function generate(model, prompt) {
@@ -69,29 +79,54 @@ async function generate(model, prompt) {
   }
 
   // Paid. maxAmountUsd is a hard ceiling for this one call.
-  const started = await gateway({
-    url: `https://stablestudio.dev/api/generate/${model}/generate`,
-    body: { prompt, aspectRatio: "1:1", imageSize: "1K" },
-    maxAmountUsd: MAX_USD_PER_IMAGE,
-  });
+  // A 429 here is free (the gateway rate-limits before it pays), so retrying
+  // costs nothing.
+  let started;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      started = await gateway({
+        url: `https://stablestudio.dev/api/generate/${model}/generate`,
+        body: { prompt, aspectRatio: "1:1", imageSize: "1K" },
+        maxAmountUsd: MAX_USD_PER_IMAGE,
+      });
+      break;
+    } catch (err) {
+      if (err.status !== 429 || attempt >= 3) throw err;
+      await sleep(err.retryAfterSeconds * 1000);
+    }
+  }
 
   spentToday += started.cost;
 
   const jobId = started.data?.jobId;
   if (!jobId) throw new Error(`no jobId in response: ${JSON.stringify(started.data).slice(0, 200)}`);
 
-  // Polling the job is free. gpt-image-2 can take a few minutes.
-  const deadline = Date.now() + 4 * 60 * 1000;
+  // This image is now paid for, so from here a rate limit must never be
+  // allowed to throw the result away: back off and keep polling instead.
+  //
+  // The gateway allows 60 requests per minute per key. Four models polling at
+  // once means the interval has to leave room for all of them, so 8s gives
+  // 4 x 7.5 = 30/min and keeps headroom for the generate calls.
+  const deadline = Date.now() + 5 * 60 * 1000;
   while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 3000));
+    await sleep(POLL_INTERVAL_MS);
 
-    const poll = await gateway({
-      url: `https://stablestudio.dev/api/jobs/${jobId}`,
-      method: "GET",
-      maxAmountUsd: 0.01,
-    });
+    let job;
+    try {
+      const poll = await gateway({
+        url: `https://stablestudio.dev/api/jobs/${jobId}`,
+        method: "GET",
+        maxAmountUsd: 0.01,
+      });
+      job = poll.data;
+    } catch (err) {
+      if (err.status === 429) {
+        await sleep(err.retryAfterSeconds * 1000);
+        continue;
+      }
+      throw err;
+    }
 
-    const job = poll.data;
     if (job?.status === "completed" || job?.status === "succeeded") {
       return { url: findImageUrl(job.result), cost: started.cost };
     }
@@ -99,7 +134,7 @@ async function generate(model, prompt) {
       throw new Error(job?.error || "generation failed");
     }
   }
-  throw new Error("timed out after 4 minutes");
+  throw new Error(`timed out after 5 minutes. Paid $${started.cost.toFixed(2)}, job ${jobId}`);
 }
 
 /** The result shape is not pinned in the spec, so go looking for a URL. */
@@ -133,7 +168,7 @@ function json(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
-const server = createServer(async (req, res) => {
+async function handle(req, res) {
   if (req.method === "GET" && (req.url === "/" || req.url === "/index.html")) {
     const html = await readFile(new URL("./public/index.html", import.meta.url));
     res.writeHead(200, { "Content-Type": "text/html" });
@@ -174,6 +209,34 @@ const server = createServer(async (req, res) => {
 
   res.writeHead(404);
   res.end("not found");
+}
+
+// A generation takes minutes, so people reload the page while one is still in
+// flight. That aborts the request, and an aborted request whose body is being
+// read rejects. Unhandled, it takes the whole server down, so every path out
+// of `handle` has to be caught here.
+const server = createServer((req, res) => {
+  req.on("error", () => {});
+  res.on("error", () => {});
+
+  handle(req, res).catch((err) => {
+    if (err?.code === "ECONNRESET" || err?.message === "aborted") return; // client went away
+    console.error("request failed:", err?.message || err);
+    if (!res.headersSent) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "internal error" }));
+    }
+  });
+});
+
+server.on("clientError", (_err, socket) => {
+  if (socket.writable) socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
+});
+
+// Last line of defence. A demo that dies on a stray socket error is worse than
+// one that logs it and keeps serving.
+process.on("unhandledRejection", (err) => {
+  console.error("unhandled rejection:", err?.message || err);
 });
 
 server.listen(PORT, "0.0.0.0", () => {
