@@ -4,7 +4,19 @@ One brief, four image models, four prices.
 
 Type a brief once. It goes to `grok`, `nano-banana`, `gpt-image-2` and
 `nano-banana-pro` at the same time, and you get four takes back with what each
-one actually charged. Usually somewhere around 25 cents for the set.
+one actually charged. Around 48 cents for the set.
+
+| model | price per image |
+|---|---|
+| `grok` | $0.07 |
+| `nano-banana` | $0.07 |
+| `nano-banana-pro` | $0.13 |
+| `gpt-image-2` | $0.21 |
+
+Quoted 2026-09-08 at `1:1` and `1K`. Prices are set by the provider and can
+change, and they depend on the arguments you send, so a bigger `imageSize` costs
+more. The app shows you what each call actually cost, which is the only number
+that is ever authoritative.
 
 The point is not a cheaper subscription. It is a wider bench. Nobody can tell you
 in advance which model reads your brief the way you meant it, so ask four and
@@ -14,7 +26,7 @@ pick the one you like.
 
 1. **Fork this Repl.**
 2. **Get a key** at [app.taskfuel.ai](https://app.taskfuel.ai/?utm_source=replit&utm_medium=referral&utm_campaign=2026-09-replit-templates&utm_content=one-brief-four-image-models).
-   The first $5 is on the house, which is about 20 runs of this app.
+   The first $5 is on the house, which is about 10 runs of this app.
 3. **Open the Secrets tab** in the left sidebar. Add a secret named
    `TASKFUEL_API_KEY` and paste your key as the value.
 4. **Hit Run.**
@@ -37,7 +49,7 @@ await fetch("https://app.taskfuel.ai/v1/call", {
     url: "https://stablestudio.dev/api/generate/nano-banana/generate",
     method: "POST",
     body: { prompt, aspectRatio: "1:1", imageSize: "1K" },
-    maxAmountUsd: 0.15,
+    maxAmountUsd: 0.25,
   }),
 });
 ```
@@ -56,8 +68,8 @@ the limits live in the code:
 
 | Setting | Default | What it does |
 |---|---|---|
-| `MAX_USD_PER_IMAGE` | `0.15` | Hard ceiling on any single image. The gateway rejects anything above it. |
-| `DAILY_BUDGET_USD` | `1.00` | Stops generating once the day's spend hits this. |
+| `MAX_USD_PER_IMAGE` | `0.25` | Hard ceiling on any single image. The gateway rejects anything above it. |
+| `DAILY_BUDGET_USD` | `2.50` | Stops generating once the day's spend hits this. |
 
 Both are optional secrets you can change without touching the code.
 

@@ -17,8 +17,8 @@ const MODELS = ["grok", "nano-banana", "gpt-image-2", "nano-banana-pro"];
 // Guardrails. The key can spend the whole balance and nobody is watching at
 // call time, so the limits live in the code. See "Spending safely" in
 // https://app.taskfuel.ai/building-apps.md
-const MAX_USD_PER_IMAGE = Number(process.env.MAX_USD_PER_IMAGE || 0.15);
-const DAILY_BUDGET_USD = Number(process.env.DAILY_BUDGET_USD || 1.0);
+const MAX_USD_PER_IMAGE = Number(process.env.MAX_USD_PER_IMAGE || 0.25);
+const DAILY_BUDGET_USD = Number(process.env.DAILY_BUDGET_USD || 2.5);
 
 let spentToday = 0;
 let budgetDay = new Date().toISOString().slice(0, 10);
