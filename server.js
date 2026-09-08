@@ -12,13 +12,7 @@ const KEY = process.env.TASKFUEL_API_KEY;
 const GATEWAY = "https://app.taskfuel.ai/v1/call";
 
 // The four models the blog post gave the same brief to.
-// Testing nano-banana only for now — put the rest back for launch.
-const MODELS = [
-  // "grok",
-  "nano-banana",
-  // "gpt-image-2",
-  // "nano-banana-pro",
-];
+const MODELS = ["grok", "nano-banana", "gpt-image-2", "nano-banana-pro"];
 
 // Guardrails. The key can spend the whole balance and nobody is watching at
 // call time, so the limits live in the code. See "Spending safely" in
