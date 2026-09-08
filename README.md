@@ -1,6 +1,8 @@
-# Image bench
+# One brief, four image models, four prices
 
-One brief, four image models, four prices.
+[![Run on Replit](https://replit.com/badge/github/taskfuel/one-brief-four-image-models)](https://replit.com/github.com/taskfuel/one-brief-four-image-models)
+
+Open it in Replit with one click, add your own key, and change the brief.
 
 Type a brief once. It goes to `grok`, `nano-banana`, `gpt-image-2` and
 `nano-banana-pro` at the same time, and you get four takes back with what each
@@ -24,7 +26,8 @@ pick the one you like.
 
 ## Run it
 
-1. **Fork this Repl.**
+1. **[Open it in Replit](https://replit.com/github.com/taskfuel/one-brief-four-image-models).**
+   That imports this repo into your own account as a runnable copy.
 2. **Get a key** at [app.taskfuel.ai](https://app.taskfuel.ai/?utm_source=replit&utm_medium=referral&utm_campaign=2026-09-replit-templates&utm_content=one-brief-four-image-models).
    The first $5 is on the house, which is about 10 runs of this app.
 3. **Open the Secrets tab** in the left sidebar. Add a secret named
