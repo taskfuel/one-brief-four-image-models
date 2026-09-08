@@ -37,6 +37,7 @@
   }
   button:disabled { opacity: 0.45; cursor: not-allowed; }
   .total { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .hint { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
   .grid {
     display: grid; gap: 16px; margin-top: 36px;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -88,6 +89,7 @@
     <button id="go">Ask all four</button>
     <span class="total" id="total"></span>
   </div>
+  <p class="hint">Some models answer in seconds, others take a few minutes. Leave the tab open.</p>
 
   <div class="grid" id="grid"></div>
 
